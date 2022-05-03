@@ -6,7 +6,7 @@ import (
 	"crypto/sha1"
 	"encoding/hex"
 
-	"github.com/gomodule/redigo/redis"
+	redis "github.com/go-redis/redis/v8"
 )
 
 type Storage interface {
@@ -32,7 +32,7 @@ func NewEntriesJar(o *Options) (http.CookieJar, error) {
 	return New(store, o)
 }
 
-func NewRedisJar(namespaces string, pool *redis.Pool, o *Options) (http.CookieJar, error) {
+func NewRedisJar(namespaces string, client *redis.Client, o *Options) (http.CookieJar, error) {
 	if namespaces == "" {
 		namespaces = "cookiejar"
 	}
@@ -41,7 +41,7 @@ func NewRedisJar(namespaces string, pool *redis.Pool, o *Options) (http.CookieJa
 	namespaces = hex.EncodeToString(r[:])
 
 	store := &RedisDrive{
-		pool:       pool,
+		client:     client,
 		namespaces: namespaces,
 		entries:    make(map[string]map[string]entry),
 	}

@@ -1,14 +1,16 @@
 package cookiejar
 
 import (
-	"github.com/gomodule/redigo/redis"
-	"github.com/json-iterator/go"
+	"context"
+
+	redis "github.com/go-redis/redis/v8"
+	jsoniter "github.com/json-iterator/go"
 )
 
 var json = jsoniter.ConfigCompatibleWithStandardLibrary
 
 type RedisDrive struct {
-	pool       *redis.Pool
+	client     *redis.Client
 	entries    map[string]map[string]entry
 	namespaces string
 }
@@ -27,15 +29,13 @@ func (r *RedisDrive) Delete(key string) {
 }
 
 func (r *RedisDrive) saveEntries(k string) error {
-	conn := r.pool.Get()
-	defer conn.Close()
-
 	v, err := json.MarshalToString(r.entries[k])
 	if err != nil {
 		return err
 	}
 
-	if _, err := conn.Do("HSET", r.namespaces, k, v); err != nil {
+	err = r.client.HSet(context.TODO(), k, v).Err()
+	if err != nil {
 		return err
 	}
 
@@ -43,16 +43,13 @@ func (r *RedisDrive) saveEntries(k string) error {
 }
 
 func (r *RedisDrive) readEntries() {
-	c := r.pool.Get()
-	defer c.Close()
-
-	keys, err := redis.Strings(c.Do("HKEYS", r.namespaces))
+	keys, err := r.client.HKeys(context.TODO(), r.namespaces).Result()
 	if err != nil {
 		return
 	}
 
 	for _, k := range keys {
-		b, err := redis.Bytes(c.Do("HGET", r.namespaces, k))
+		b, err := r.client.HGet(context.TODO(), r.namespaces, k).Bytes()
 		if err != nil {
 			continue
 		}
